@@ -8,8 +8,6 @@ if (!BOT_TOKEN) {
 }
 
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
-const CREDIT = "Credits: @ESCROW_BY_RIZZ | Bot maker: @AURAMANxHEREE";
-
 const HELP_MESSAGE = [
   "RIZZ Escrow Fee Calculator",
   "",
@@ -26,8 +24,6 @@ const HELP_MESSAGE = [
   "Rs 500 to Rs 2000 = 4%",
   "Rs 2001 to Rs 3000 = 3.5%",
   "Above Rs 3000 = 3%",
-  "",
-  CREDIT,
 ].join("\n");
 
 let offset = 0;
@@ -39,33 +35,19 @@ function startHealthServer() {
       res.end("RIZZ Escrow Fee Calculator Bot is running");
       return;
     }
-
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("Not found");
   });
-
   server.listen(PORT, () => {
     console.log(`Health server listening on port ${PORT}`);
   });
 }
 
 function calculateFee(amount) {
-  if (amount < 200) {
-    return 10;
-  }
-
-  if (amount <= 499) {
-    return 20;
-  }
-
-  if (amount <= 2000) {
-    return amount * 0.04;
-  }
-
-  if (amount <= 3000) {
-    return amount * 0.035;
-  }
-
+  if (amount < 200) return 10;
+  if (amount <= 499) return 20;
+  if (amount <= 2000) return amount * 0.04;
+  if (amount <= 3000) return amount * 0.035;
   return amount * 0.03;
 }
 
@@ -83,33 +65,23 @@ function extractAmount(text) {
 function buildCalculationMessage(amount) {
   const fee = calculateFee(amount);
   const total = amount + fee;
-
   return [
     "RIZZ Escrow Fee Calculator",
     "",
     `Deal Amount: ${formatRupees(amount)}`,
     `Escrow Fee: ${formatRupees(fee)}`,
     `Total Payable: ${formatRupees(total)}`,
-    "",
-    CREDIT,
   ].join("\n");
 }
 
 async function telegram(method, payload) {
   const response = await fetch(`${TELEGRAM_API}/${method}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-
   const data = await response.json();
-
-  if (!data.ok) {
-    throw new Error(`${method} failed: ${JSON.stringify(data)}`);
-  }
-
+  if (!data.ok) throw new Error(`${method} failed: ${JSON.stringify(data)}`);
   return data.result;
 }
 
@@ -123,49 +95,34 @@ async function sendMessage(chatId, text, replyToMessageId) {
 }
 
 function shouldRespond(message) {
-  if (!message || !message.text || !message.chat) {
-    return false;
-  }
-
+  if (!message || !message.text || !message.chat) return false;
   return ["private", "group", "supergroup"].includes(message.chat.type);
 }
 
 async function handleMessage(message) {
-  if (!shouldRespond(message)) {
-    return;
-  }
-
+  if (!shouldRespond(message)) return;
   const text = message.text.trim();
   const chatId = message.chat.id;
   const replyToMessageId = message.message_id;
 
-  if (
-    text === "/start" ||
-    text === "/help" ||
-    text.startsWith("/start@") ||
-    text.startsWith("/help@")
-  ) {
+  if (text === "/start" || text === "/help" || text.startsWith("/start@") || text.startsWith("/help@")) {
     await sendMessage(chatId, HELP_MESSAGE, replyToMessageId);
     return;
   }
 
   const commandMatch = text.match(/^\/(?:fee|fees|calc|calculate)(?:@\w+)?(?:\s+(.+))?$/i);
-
   if (commandMatch) {
     const amount = commandMatch[1] ? extractAmount(commandMatch[1]) : null;
-
     if (!amount || amount <= 0) {
-      await sendMessage(chatId, "Send the deal amount like /fee 500\n\n" + CREDIT, replyToMessageId);
+      await sendMessage(chatId, "Send the deal amount like /fee 500", replyToMessageId);
       return;
     }
-
     await sendMessage(chatId, buildCalculationMessage(amount), replyToMessageId);
     return;
   }
 
   if (message.chat.type === "private") {
     const amount = extractAmount(text);
-
     if (amount && amount > 0) {
       await sendMessage(chatId, buildCalculationMessage(amount), replyToMessageId);
     } else {
@@ -182,7 +139,6 @@ async function poll() {
         timeout: 50,
         allowed_updates: ["message"],
       });
-
       for (const update of updates) {
         offset = update.update_id + 1;
         await handleMessage(update.message);
